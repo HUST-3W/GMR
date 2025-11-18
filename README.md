@@ -215,6 +215,13 @@ conda install -c conda-forge libstdcxx-ng -y
 
 [[LAFAN1](https://github.com/ubisoft/ubisoft-laforge-animation-dataset) motion data] download raw LAFAN1 bvh files from [the official repo](https://github.com/ubisoft/ubisoft-laforge-animation-dataset), i.e., [lafan1.zip](https://github.com/ubisoft/ubisoft-laforge-animation-dataset/blob/master/lafan1/lafan1.zip).
 
+## 机器人IK_CONFIG自动生成
+详见ik_config_manager文件夹
+```bash
+pip install lxml
+pip install matplotlib
+```
+
 
 ## Human/Robot Motion Data Formulation
 
