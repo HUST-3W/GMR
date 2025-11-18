@@ -169,54 +169,86 @@ class GeneralMotionRetargeting:
                 pos, rot = human_data[body_name]
                 task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot), pos))
             
-            
-    def retarget(self, human_data, offset_to_ground=False):
-        # Update the task targets
+    def retarget(self, human_data, offset_to_ground: bool = False, frame_dt_target: float = None):
+        """
+        做法A + 固定目标帧时长版本：
+        - 一帧内按 MuJoCo 的 opt.timestep 进行若干 mini-step（子步）求解；
+        - 直到累计时间 sum_dt ≈ frame_dt_target（最后一个子步用剩余时间截断）；
+        - 对每个 mini-step 的广义速度 qvel_k 进行时间加权平均，得到本帧的 avg_qvel；
+        - 返回 (qpos_end, last_qvel, avg_qvel)；
+        - 同时把 avg_qvel 写回 self.configuration.data.qvel，累计时长写入 self.last_frame_dt。
+        
+        速度语义（保持与 MuJoCo free 关节一致）：
+            qvel[:3] = root 角速度（body frame）
+            qvel[3:6] = root 线速度（world frame）
+            qvel[6:]  = 各关节速度
+        """
+        # 1) 刷新 IK 目标
         self.update_targets(human_data, offset_to_ground)
 
-        if self.use_ik_match_table1:
-            # Solve the IK problem
-            curr_error = self.error1()
-            dt = self.configuration.model.opt.timestep
-            vel1 = mink.solve_ik(
-                self.configuration, self.tasks1, dt, self.solver, self.damping, self.ik_limits
-            )
-            self.configuration.integrate_inplace(vel1, dt)
-            next_error = self.error1()
-            num_iter = 0
-            while curr_error - next_error > 0.001 and num_iter < self.max_iter:
-                curr_error = next_error
-                dt = self.configuration.model.opt.timestep
-                vel1 = mink.solve_ik(
-                    self.configuration, self.tasks1, dt, self.solver, self.damping, self.ik_limits
-                )
-                self.configuration.integrate_inplace(vel1, dt)
-                next_error = self.error1()
-                num_iter += 1
+        # 2) 目标帧时长与子步时长
+        opt_dt = float(self.configuration.model.opt.timestep)
+        if frame_dt_target is None or frame_dt_target <= 0.0:
+            # 未指定则退化为一个子步（不推荐，建议外部传 1.0/fps）
+            frame_dt_target = opt_dt
 
-        if self.use_ik_match_table2:
-            curr_error = self.error2()
-            dt = self.configuration.model.opt.timestep
-            vel2 = mink.solve_ik(
-                self.configuration, self.tasks2, dt, self.solver, self.damping, self.ik_limits
+        # 3) 帧平均速度累加器
+        sum_qvel = np.zeros(self.configuration.model.nv, dtype=float)
+        sum_dt = 0.0
+        last_qvel = None
+
+        # 小工具：执行一次 IK 子步并做时间加权累计
+        def _one_step(tasks, dt_k):
+            nonlocal sum_qvel, sum_dt, last_qvel
+            vel = mink.solve_ik(
+                self.configuration, tasks, dt_k, self.solver, self.damping, self.ik_limits
             )
-            self.configuration.integrate_inplace(vel2, dt)
-            next_error = self.error2()
-            num_iter = 0
-            while curr_error - next_error > 0.001 and num_iter < self.max_iter:
-                curr_error = next_error
-                # Solve the IK problem with the second task
-                dt = self.configuration.model.opt.timestep
-                vel2 = mink.solve_ik(
-                    self.configuration, self.tasks2, dt, self.solver, self.damping, self.ik_limits
-                )
-                self.configuration.integrate_inplace(vel2, dt)
-                
-                next_error = self.error2()
-                num_iter += 1
-                
-            
-        return self.configuration.data.qpos.copy()
+            # 积分推进 qpos
+            self.configuration.integrate_inplace(vel, dt_k)
+            # 帧平均分子分母累计
+            sum_qvel += vel * dt_k
+            sum_dt += dt_k
+            last_qvel = vel
+            return vel
+
+        # 4) 时间循环：累计到恰好 frame_dt_target
+        #    每个 while 迭代里，依次对 tasks1、tasks2 各推进最多一个子步（若开启）
+        while sum_dt + 1e-12 < frame_dt_target:
+            rem = frame_dt_target - sum_dt
+            dt_k = min(opt_dt, rem)
+
+            did_any = False
+
+            # 第一阶段（若启用）
+            if self.use_ik_match_table1 and sum_dt + 1e-12 < frame_dt_target:
+                _ = _one_step(self.tasks1, dt_k)
+                did_any = True
+
+            # 可能还剩一点时间，再给第二阶段推进一次
+            rem2 = frame_dt_target - sum_dt
+            if self.use_ik_match_table2 and rem2 > 1e-12:
+                dt_k2 = min(opt_dt, rem2)
+                _ = _one_step(self.tasks2, dt_k2)
+                did_any = True
+
+            # 如果两阶段都没启用（极端兜底），用零速度把剩余时间“填满”
+            if not did_any:
+                last_qvel = np.zeros(self.configuration.model.nv, dtype=float)
+                sum_dt = frame_dt_target  # 不改变 qpos，只让时间对齐
+                break
+
+        # 5) 若本帧没有任何推进（极少见），速度置零；否则做时间加权平均
+        if last_qvel is None:
+            last_qvel = np.zeros(self.configuration.model.nv, dtype=float)
+
+        avg_qvel = (sum_qvel / max(sum_dt, 1e-12)).astype(float)
+
+        # 6) 写回 data，记录本帧累计时长（应≈frame_dt_target）
+        self.configuration.data.qvel[:] = avg_qvel
+        self.last_frame_dt = float(sum_dt)
+
+        # 7) 返回：当前帧末 qpos、最后一个子步瞬时 qvel（诊断用）、以及本帧平均 qvel（推荐导出）
+        return self.configuration.data.qpos.copy(), last_qvel.copy(), avg_qvel.copy()        
 
 
     def error1(self):
