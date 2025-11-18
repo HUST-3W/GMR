@@ -93,6 +93,20 @@ class RobotMotionViewer:
             # Initialize renderer for video recording
             self.renderer = mj.Renderer(self.model, height=video_height, width=video_width)
         
+    def get_body_transform(self, body_name):
+        """获取指定身体的全局位置和旋转矩阵"""
+        try:
+            body_id = self.model.body(body_name).id
+            
+            # 获取身体位置和旋转
+            pos = self.data.xpos[body_id].copy()
+            mat = self.data.xmat[body_id].reshape(3, 3).copy()
+            
+            return pos, mat
+        except:
+            print(f"[Warning] Body '{body_name}' not found in the model")
+            return None, None
+        
     def step(self, 
             # robot data
             root_pos, root_rot, dof_pos, 
@@ -103,15 +117,20 @@ class RobotMotionViewer:
             human_point_scale=0.1,
             # human pos offset add for visualization    
             human_pos_offset=np.array([0.0, 0.0, 0]),
+            # robot body frames visualization
+            robot_frames=None,
+            robot_frame_scale=0.2,
+            show_robot_body_name=False,
             # rate limit
             rate_limit=True, 
-            follow_camera=True,
+            follow_camera=False,
             ):
         """
         by default visualize robot motion.
         also support visualize human motion by providing human_motion_data, to compare with robot motion.
         
         human_motion_data is a dict of {"human body name": (3d global translation, 3d global rotation)}.
+        robot_frames is a list of body names to visualize coordinate frames.
 
         if rate_limit is True, the motion will be visualized at the same rate as the motion data.
         else, the motion will be visualized as fast as possible.
@@ -128,10 +147,11 @@ class RobotMotionViewer:
             self.viewer.cam.distance = self.viewer_cam_distance
             self.viewer.cam.elevation = -10  # 正面视角，轻微向下看
             # self.viewer.cam.azimuth = 180    # 正面朝向机器人
+
+        # Clean custom geometry
+        self.viewer.user_scn.ngeom = 0
         
         if human_motion_data is not None:
-            # Clean custom geometry
-            self.viewer.user_scn.ngeom = 0
             # Draw the task targets for reference
             for human_body_name, (pos, rot) in human_motion_data.items():
                 draw_frame(
@@ -141,6 +161,19 @@ class RobotMotionViewer:
                     human_point_scale,
                     pos_offset=human_pos_offset,
                     joint_name=human_body_name if show_human_body_name else None
+                    )
+        
+        # Draw robot joint frames if requested
+        if robot_frames is not None:
+            for robot_body_name in robot_frames:
+                pos, mat = self.get_body_transform(robot_body_name)
+                if pos is not None and mat is not None:
+                    draw_frame(
+                        pos,
+                        mat,
+                        self.viewer,
+                        robot_frame_scale,
+                        joint_name=robot_body_name if show_robot_body_name else None
                     )
 
         self.viewer.sync()
