@@ -1,8 +1,8 @@
 # 自动生成ik_config文件的human_scale与pos/quat_offset
 
 # 基础配置
--pose_inits中添加_tpose.json文件 \
--ik_configs中添加bvh/smplx_to_robot_origin.json文件
+-pose_inits中添加_tpose.json文件(设置机器人的初始位姿为T-pose) \
+-ik_configs中添加bvh/smplx_to_robot_origin.json文件（主要需要joint_match）
 
 BVH格式：
 ```bash
