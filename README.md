@@ -28,15 +28,14 @@ Please refer to the original project's README first.
 This repository has been modified to add *IK-CONFIG auto-generation* function for your own humanoid robots.
 
 ## 机器人IK_CONFIG自动生成
-详见ik_config_manager文件夹
+详见ik_config_manager文件夹 \
+辅助生成*human_scale*与*pos/quat_offset*
 
 ## 安装要求
 ```bash
 pip install lxml
 pip install matplotlib
 ```
-
-# 自动生成ik_config文件的human_scale与pos/quat_offset
 
 ## 基础配置
 -pose_inits中添加_tpose.json文件(设置机器人的初始位姿为T-pose) \
