@@ -72,7 +72,7 @@ class MuJoCoFK:
 
         self.dof_axis = torch.tensor(self.dof_axis)
         self.num_bodies = len(self.body_names)
-        # 只保留可见刚体：排除 world(id=0)，并保证顺序固定
+        # 只保留可见刚体：排除 root(id=0)，并保证顺序固定
         self.body_ids = [i for i in range(self.num_bodies) if i != 0]
 
         self.joints_range = mjcf_data["joints_range"].to(device)
