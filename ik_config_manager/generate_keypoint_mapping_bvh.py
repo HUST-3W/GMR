@@ -151,7 +151,7 @@ if __name__ == "__main__":
         fixed_root_rot.astype(np.float64),
         fixed_dof_pos.astype(np.float64)
     ], axis=0)
-    centers, Rs = fk_solver.fk(qpos_fk)
+    centers, Rs = fk_solver.get_specific_body_positions(qpos_fk, fk_solver.body_names)
 
     # 优化缩放系数
     ratio = actual_human_height / ik_cfg_tmp["human_height_assumption"]
