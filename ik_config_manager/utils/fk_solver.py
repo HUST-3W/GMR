@@ -173,13 +173,35 @@ class MuJoCoFK:
         
         return joint_order
     
-    def fk(self, qpos_full: np.ndarray):
+    def get_specific_body_positions(self, qpos_full: np.ndarray, body_names: list):
+        """
+        获取指定身体部位的位置
+        
+        Args:
+        qpos_full: 完整的机器人姿态
+        body_names: 需要获取位置的身体名称列表
+        
+        Return:
+        positions: 指定身体部位的3D位置数组
+        rotations: 指定身体部位的旋转矩阵数组
+        """
         self.data.qpos[:] = qpos_full
         mujoco.mj_forward(self.model, self.data)
-        centers, Rs = [], []
-        for i in self.body_ids:
-            p = np.array(self.data.xpos[i], dtype=np.float32)
-            Rm = np.array(self.data.xmat[i], dtype=np.float64).reshape(3, 3)
-            centers.append(p)
-            Rs.append(Rm)
-        return np.stack(centers, axis=0), np.stack(Rs, axis=0)
+        
+        positions = []
+        rotations = []
+        
+        for body_name in body_names:
+            try:
+                body_id = self.model.body(body_name).id
+                pos = np.array(self.data.xpos[body_id], dtype=np.float32)
+                rot = np.array(self.data.xmat[body_id], dtype=np.float64).reshape(3, 3)
+                positions.append(pos)
+                rotations.append(rot)
+            except:
+                print(f"[Warning] Body '{body_name}' not found in the model")
+                # 添加默认位置
+                positions.append(np.array([0, 0, 0], dtype=np.float32))
+                rotations.append(np.eye(3, dtype=np.float64))
+        
+        return np.array(positions), np.array(rotations)
