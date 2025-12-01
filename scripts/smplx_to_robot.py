@@ -399,29 +399,27 @@ if __name__ == "__main__":
         R_wb = np.transpose(R_bw, (0, 2, 1))                               # (T,3,3) world->body
         root_vel_body = np.einsum('tij,tj->ti', R_wb, root_vel_world).astype(np.float32)  # (T,3)
 
-        # 5) 构造“旧格式”外键包装：使用文件名当序列名
+        # 5) 构造导出数据格式
         seq_name = Path(args.smplx_file).stem
         export_data = {
-            seq_name: {
-                "root_pos": root_pos,                 # (T,3) world
-                "root_vel": root_vel_world,           # (T,3) world（兼容字段）
-                "root_vel_body": root_vel_body,       # (T,3) body（新增）
-                "root_rot": root_rot_xyzw,            # (T,4) xyzw
-                "root_rot_vel": root_rot_vel,         # (T,3) body
-                "dof_pos": dof_pos,                   # (T,Nd)
-                "dof_vel": dof_vel,                   # (T,Nd)
-                "local_body_pos": None,
-                "link_body_list": None,
-                "frame_rate": float(aligned_fps),
-                "fps": float(aligned_fps),
-                "meta": {
-                    "root_rot_convention": "xyzw",
-                    "root_ang_vel_space": "local",      # 体坐标
-                    "root_lin_vel_space_world": "world", # 线速度（root_vel）的坐标系
-                    "root_lin_vel_space_body": "local",  # 线速度（root_vel_body）的坐标系
-                    # "frame_dt_per_step": frame_dt_arr    # (T,) 每帧累计子步时长（与区间对齐）
-                },
-            }
+            "motion_file": seq_name,
+            "root_pos": root_pos,                 # (T,3) world
+            "root_vel": root_vel_world,           # (T,3) world（兼容字段）
+            "root_vel_body": root_vel_body,       # (T,3) body（新增）
+            "root_rot": root_rot_xyzw,            # (T,4) xyzw
+            "root_rot_vel": root_rot_vel,         # (T,3) body
+            "dof_pos": dof_pos,                   # (T,Nd)
+            "dof_vel": dof_vel,                   # (T,Nd)
+            "local_body_pos": None,
+            "link_body_list": None,
+            "fps": float(aligned_fps),
+            "meta": {
+                "root_rot_convention": "xyzw",
+                "root_ang_vel_space": "local",      # 体坐标
+                "root_lin_vel_space_world": "world", # 线速度（root_vel）的坐标系
+                "root_lin_vel_space_body": "local",  # 线速度（root_vel_body）的坐标系
+                # "frame_dt_per_step": frame_dt_arr    # (T,) 每帧累计子步时长（与区间对齐）
+            },
         }
 
         with open(args.save_path, "wb") as f:
