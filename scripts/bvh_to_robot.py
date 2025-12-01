@@ -461,6 +461,7 @@ if __name__ == "__main__":
         # 5) 构造导出数据格式
         seq_name = Path(args.bvh_file).stem
         export_data = {
+            "motion_file": seq_name,
             "root_pos": root_pos,                 # (T,3) world
             "root_vel": root_vel_world,           # (T,3) world（兼容字段）
             "root_vel_body": root_vel_body,       # (T,3) body（新增）
@@ -470,7 +471,6 @@ if __name__ == "__main__":
             "dof_vel": dof_vel,                   # (T,Nd)
             "local_body_pos": None,
             "link_body_list": None,
-            "frame_rate": float(aligned_fps),
             "fps": float(aligned_fps),
             "meta": {
                 "root_rot_convention": "xyzw",
