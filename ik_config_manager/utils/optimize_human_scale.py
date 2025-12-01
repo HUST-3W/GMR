@@ -365,9 +365,8 @@ def compute_shape_fitting_loss(group_scale_params, scale_groups, group_keys, fix
 
     # 遍历所有机器人连杆与人体骨骼的匹配对
     for (robot_link, human_bone), robot_pos in robot_positions.items():
-        # 跳过没有缩放系数的人体骨骼与根节点
-        if human_bone not in scale_dict or human_bone == human_root_name:
-        # if human_bone not in scale_dict:
+        # 跳过没有缩放系数的人体骨骼
+        if human_bone not in scale_dict:
             continue
             
         # 获取当前人体骨骼的缩放系数
