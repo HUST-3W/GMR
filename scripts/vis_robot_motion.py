@@ -3,6 +3,13 @@ import argparse
 import os
 from tqdm import tqdm
 
+paused = False
+
+def keyboard_callback(keycode):
+    global paused
+    if chr(keycode) == ' ':
+        paused = not paused
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--robot", type=str, default="unitree_g1")
@@ -26,15 +33,17 @@ if __name__ == "__main__":
     env = RobotMotionViewer(robot_type=robot_type,
                             motion_fps=motion_fps,
                             camera_follow=False,
-                            record_video=args.record_video, video_path=args.video_path)
+                            record_video=args.record_video, video_path=args.video_path,
+                            keyboard_callback=keyboard_callback)
     
     frame_idx = 0
     while True:
-        env.step(motion_root_pos[frame_idx], 
-                motion_root_rot[frame_idx], 
-                motion_dof_pos[frame_idx], 
-                rate_limit=True)
-        frame_idx += 1
-        if frame_idx >= len(motion_root_pos):
-            frame_idx = 0
+        if not paused:
+            env.step(motion_root_pos[frame_idx], 
+                    motion_root_rot[frame_idx], 
+                    motion_dof_pos[frame_idx], 
+                    rate_limit=True)
+            frame_idx += 1
+            if frame_idx >= len(motion_root_pos):
+                frame_idx = 0
     env.close()
