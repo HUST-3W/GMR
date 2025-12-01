@@ -4,11 +4,28 @@ import os
 from tqdm import tqdm
 
 paused = False
+frame_idx = 0
 
 def keyboard_callback(keycode):
-    global paused
-    if chr(keycode) == ' ':
+    global frame_idx, paused
+    if chr(keycode) == "R":
+        print("Reset")
+        frame_idx = 0
+    elif chr(keycode) == " ":
+        if paused:
+            print("Paused")
+        else:
+            print("Resumed")
         paused = not paused
+    elif keycode == 256 or chr(keycode) == "Q":
+        print("Esc")
+        os._exit(0)
+    elif keycode == 262: #(Right)
+        frame_idx+=1
+        print("Step forward")
+    elif keycode == 263: #(Left)
+        frame_idx-=1
+        print("Step backward")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -38,12 +55,13 @@ if __name__ == "__main__":
     
     frame_idx = 0
     while True:
-        if not paused:
-            env.step(motion_root_pos[frame_idx], 
+        env.step(motion_root_pos[frame_idx], 
                     motion_root_rot[frame_idx], 
                     motion_dof_pos[frame_idx], 
                     rate_limit=True)
+        if not paused:
             frame_idx += 1
-            if frame_idx >= len(motion_root_pos):
-                frame_idx = 0
+            
+        if frame_idx >= len(motion_root_pos):
+            frame_idx -= len(motion_root_pos)
     env.close()
